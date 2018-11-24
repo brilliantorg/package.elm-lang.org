@@ -12,6 +12,7 @@ import Elm.Version as V
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Href
+import MountPoint exposing (MountPoint)
 import Utils.Markdown as Markdown
 
 
@@ -28,23 +29,23 @@ maxWidth =
 -- VIEW
 
 
-view : Info -> Docs.Block -> Html msg
-view info block =
+view : MountPoint -> Info -> Docs.Block -> Html msg
+view mount info block =
   case block of
     Docs.MarkdownBlock markdown ->
       span [class "markdown-block"] [ Markdown.block markdown ]
 
     Docs.ValueBlock value ->
-      viewValue info value
+      viewValue mount info value
 
     Docs.BinopBlock binop ->
-      viewBinop info binop
+      viewBinop mount info binop
 
     Docs.AliasBlock alias ->
-      viewAlias info alias
+      viewAlias mount info alias
 
     Docs.UnionBlock union ->
-      viewUnion info union
+      viewUnion mount info union
 
     Docs.UnknownBlock name ->
       span
@@ -69,14 +70,14 @@ viewCodeBlock name comment header =
 -- VIEW VALUE BLOCK
 
 
-viewValue : Info -> Docs.Value -> Html msg
-viewValue info { name, comment, tipe } =
+viewValue : MountPoint -> Info -> Docs.Value -> Html msg
+viewValue mount info { name, comment, tipe } =
   let
     nameHtml =
-      toBoldLink info name
+      toBoldLink mount info name
   in
   viewCodeBlock name comment <|
-    case toLines info Other tipe of
+    case toLines mount info Other tipe of
       One _ line ->
         [ nameHtml :: space :: colon :: space :: line ]
 
@@ -93,14 +94,14 @@ indentFour =
 -- VIEW BINOP BLOCK
 
 
-viewBinop : Info -> Docs.Binop -> Html msg
-viewBinop info { name, comment, tipe } =
+viewBinop : MountPoint -> Info -> Docs.Binop -> Html msg
+viewBinop mount info { name, comment, tipe } =
   let
     nameHtml =
-      toBoldLink info ("(" ++ name ++ ")")
+      toBoldLink mount info ("(" ++ name ++ ")")
   in
   viewCodeBlock name comment <|
-    case toLines info Other tipe of
+    case toLines mount info Other tipe of
       One _ line ->
         [ nameHtml :: space :: colon :: space :: line ]
 
@@ -112,34 +113,34 @@ viewBinop info { name, comment, tipe } =
 -- VIEW ALIAS BLOCK
 
 
-viewAlias : Info -> Docs.Alias -> Html msg
-viewAlias info { name, args, comment, tipe } =
+viewAlias : MountPoint -> Info -> Docs.Alias -> Html msg
+viewAlias mount info { name, args, comment, tipe } =
   let
     varsString =
       String.concat (List.map ((++) " ") args)
 
     aliasNameLine =
       [ keyword "type", space, keyword "alias", space
-      , toBoldLink info name, text varsString, space
+      , toBoldLink mount info name, text varsString, space
       , equals
       ]
   in
   viewCodeBlock name comment <|
-    aliasNameLine :: List.map indentFour (linesToList (toLines info Other tipe))
+    aliasNameLine :: List.map indentFour (linesToList (toLines mount info Other tipe))
 
 
 
 -- VIEW UNION
 
 
-viewUnion : Info -> Docs.Union -> Html msg
-viewUnion info {name, comment, args, tags} =
+viewUnion : MountPoint -> Info -> Docs.Union -> Html msg
+viewUnion mount info {name, comment, args, tags} =
   let
     varsString =
       String.concat <| List.map ((++) " ") args
 
     nameLine =
-      [ keyword "type", space, toBoldLink info name, text varsString ]
+      [ keyword "type", space, toBoldLink mount info name, text varsString ]
   in
   viewCodeBlock name comment <|
     case tags of
@@ -147,14 +148,14 @@ viewUnion info {name, comment, args, tags} =
         [ nameLine ]
 
       t :: ts ->
-        nameLine :: linesToList (toMoreLines (unionMore info) t ts)
+        nameLine :: linesToList (toMoreLines (unionMore mount info) t ts)
 
 
-unionMore : Info -> MoreSettings (String, List Type.Type) msg
-unionMore info =
+unionMore : MountPoint -> Info -> MoreSettings (String, List Type.Type) msg
+unionMore mount info =
   let
     ctorToLines (ctor,args) =
-      toOneOrMore (toLines info Other (Type.Type ctor args))
+      toOneOrMore (toLines mount info Other (Type.Type ctor args))
   in
   { open = [ text "    = " ]
   , sep = text "    | "
@@ -199,9 +200,9 @@ makeInfo author project version moduleName docsList =
 -- CREATE LINKS
 
 
-toBoldLink : Info -> String -> Html msg
-toBoldLink info name =
-  makeLink info [bold] name name
+toBoldLink : MountPoint -> Info -> String -> Html msg
+toBoldLink mount info name =
+  makeLink mount info [bold] name name
 
 
 bold : Attribute msg
@@ -209,17 +210,17 @@ bold =
   style "font-weight" "bold"
 
 
-makeLink : Info -> List (Attribute msg) -> String -> String -> Html msg
-makeLink {author, project, version, moduleName} attrs tagName humanName =
+makeLink : MountPoint -> Info -> List (Attribute msg) -> String -> String -> Html msg
+makeLink mount {author, project, version, moduleName} attrs tagName humanName =
   let
     url =
-      Href.toModule author project version moduleName (Just tagName)
+      Href.toModule mount author project version moduleName (Just tagName)
   in
   a (href url :: attrs) [ text humanName ]
 
 
-toLinkLine : Info -> String -> Lines (Line msg)
-toLinkLine info qualifiedName =
+toLinkLine : MountPoint -> Info -> String -> Lines (Line msg)
+toLinkLine mount info qualifiedName =
   case Dict.get qualifiedName info.typeNameDict of
     Nothing ->
       let
@@ -229,7 +230,7 @@ toLinkLine info qualifiedName =
       One (String.length shortName) [ span [ title qualifiedName ] [ text shortName ] ]
 
     Just (moduleName, name) ->
-      One (String.length name) [ makeLink { info | moduleName = moduleName } [] name name ]
+      One (String.length name) [ makeLink mount { info | moduleName = moduleName } [] name name ]
 
 
 last : a -> List a -> a
@@ -261,8 +262,8 @@ type Lines line
 type Context = Func | App | Other
 
 
-toLines : Info -> Context -> Type.Type -> Lines (Line msg)
-toLines info context tipe =
+toLines : MountPoint -> Info -> Context -> Type.Type -> Lines (Line msg)
+toLines mount info context tipe =
   case tipe of
     Type.Var x ->
       One (String.length x) [text x]
@@ -275,16 +276,16 @@ toLines info context tipe =
           else
             toLinesHelp lambdaOneParens lambdaMoreParens
       in
-      lambdaToLine (toLines info Func arg) <|
-        List.map (toLines info Func) (collectArgs [] result)
+      lambdaToLine (toLines mount info Func arg) <|
+        List.map (toLines mount info Func) (collectArgs [] result)
 
     Type.Tuple [] ->
       One 2 [text "()"]
 
     Type.Tuple (arg :: args) ->
       toLinesHelp tupleOne tupleMore
-        (toLines info Other arg)
-        (List.map (toLines info Other) args)
+        (toLines mount info Other arg)
+        (List.map (toLines mount info Other) args)
 
     Type.Type name args ->
       let
@@ -294,8 +295,8 @@ toLines info context tipe =
       toLinesHelp
         (typeOne needsParens)
         (typeMore needsParens)
-        (toLinkLine info name)
-        (List.map (toLines info App) args)
+        (toLinkLine mount info name)
+        (List.map (toLines mount info App) args)
 
     Type.Record [] Nothing ->
       One 2 [text "{}"]
@@ -306,7 +307,7 @@ toLines info context tipe =
     Type.Record (f :: fs) extension ->
       let
         toLns ( field, fieldType ) =
-          ( field, toLines info Other fieldType )
+          ( field, toLines mount info Other fieldType )
       in
       case extension of
         Nothing ->

@@ -10,6 +10,7 @@ import Elm.Version as V
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Href
+import MountPoint exposing (MountPoint)
 
 
 
@@ -49,18 +50,18 @@ offline file =
 -- MISSING MODULE
 
 
-missingModule : String -> String -> Maybe V.Version -> String -> List (Html msg)
-missingModule author project version name =
+missingModule : MountPoint -> String -> String -> Maybe V.Version -> String -> List (Html msg)
+missingModule mount author project version name =
   [ div [ style "font-size" "3em" ]
       [ text "Module not found"
       ]
   , p []
       [ text "Maybe it existed in a "
-      , a [ href (Href.toProject author project) ] [ text "previous release" ]
+      , a [ href (Href.toProject mount author project) ] [ text "previous release" ]
       , text "?"
       , br [] []
       , text "Maybe the "
-      , a [ href (Href.toVersion author project version) ] [ text "README" ]
+      , a [ href (Href.toVersion mount author project version) ] [ text "README" ]
       , text " will help you figure out what changed?"
       ]
   ]
