@@ -18,8 +18,10 @@ module Session exposing
 import Dict
 import Elm.Docs as Docs
 import Elm.Version as V
+import Href
 import Http
 import Json.Decode as Decode
+import MountPoint exposing (MountPoint)
 import Page.Search.Entry as Entry
 import Release
 import Url.Builder as Url
@@ -31,16 +33,17 @@ import Utils.OneOrMore exposing (OneOrMore(..))
 
 
 type alias Data =
-  { entries : Maybe (List Entry.Entry)
+  { mountPoint : MountPoint
+  , entries : Maybe (List Entry.Entry)
   , releases : Dict.Dict String (OneOrMore Release.Release)
   , readmes : Dict.Dict String String
   , docs : Dict.Dict String (List Docs.Module)
   }
 
 
-empty : Data
-empty =
-  Data Nothing Dict.empty Dict.empty Dict.empty
+empty : MountPoint.MountPoint -> Data
+empty mountPoint =
+  Data mountPoint Nothing Dict.empty Dict.empty Dict.empty
 
 
 
@@ -80,10 +83,10 @@ addReleases author project releases data =
   { data | releases = newReleases }
 
 
-fetchReleases : String -> String -> Http.Request (OneOrMore Release.Release)
-fetchReleases author project =
+fetchReleases : MountPoint -> String -> String -> Http.Request (OneOrMore Release.Release)
+fetchReleases mount author project =
   Http.get
-    (Url.absolute [ "packages", author, project, "releases.json" ] [])
+    (Href.join mount (Url.absolute [ "packages", author, project, "releases.json" ] []))
     Release.decoder
 
 
@@ -110,10 +113,10 @@ addReadme author project version readme data =
   { data | readmes = newReadmes }
 
 
-fetchReadme : String -> String -> V.Version -> Http.Request String
-fetchReadme author project version =
+fetchReadme : MountPoint -> String -> String -> V.Version -> Http.Request String
+fetchReadme mount author project version =
   Http.getString <|
-    Url.absolute [ "packages", author, project, V.toString version, "README.md" ] []
+    (Href.join mount (Url.absolute [ "packages", author, project, V.toString version, "README.md" ] []))
 
 
 
@@ -134,8 +137,8 @@ addDocs author project version docs data =
   { data | docs = newDocs }
 
 
-fetchDocs : String -> String -> V.Version -> Http.Request (List Docs.Module)
-fetchDocs author project version =
+fetchDocs : MountPoint -> String -> String -> V.Version -> Http.Request (List Docs.Module)
+fetchDocs mount author project version =
   Http.get
-    (Url.absolute [ "packages", author, project, V.toString version, "docs.json" ] [])
+    (Href.join mount (Url.absolute [ "packages", author, project, V.toString version, "docs.json" ] []))
     (Decode.list Docs.decoder)

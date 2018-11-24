@@ -7,10 +7,12 @@ module Page.Help exposing
   )
 
 
+import Href
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Http
 import Markdown
+import MountPoint
 import Session
 import Skeleton
 
@@ -35,7 +37,7 @@ type Content
 init : Session.Data -> String -> String -> ( Model, Cmd Msg )
 init session title url =
   ( Model session title Loading
-  , Http.send GotContent (Http.getString url)
+  , Http.send GotContent (Http.getString (Href.join session.mountPoint url))
   )
 
 

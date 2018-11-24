@@ -5,7 +5,10 @@ import Browser
 import Browser.Navigation as Nav
 import Dict
 import Elm.Version as V
+import Flags
 import Html
+import Json.Decode as Decode
+import MountPoint exposing (MountPoint)
 import Page.Docs as Docs
 import Page.Diff as Diff
 import Page.Help as Help
@@ -66,8 +69,9 @@ subscriptions model =
 view : Model -> Browser.Document Msg
 view model =
   case model.page of
-    NotFound _ ->
+    NotFound session ->
       Skeleton.view never
+        session.mountPoint
         { title = "Not Found"
         , header = []
         , warning = Skeleton.NoProblems
@@ -76,27 +80,30 @@ view model =
         }
 
     Search search ->
-      Skeleton.view SearchMsg (Search.view search)
+      Skeleton.view SearchMsg search.session.mountPoint (Search.view search)
 
     Docs docs ->
-      Skeleton.view DocsMsg (Docs.view docs)
+      Skeleton.view DocsMsg docs.session.mountPoint (Docs.view docs)
 
     Diff diff ->
-      Skeleton.view never (Diff.view diff)
+      Skeleton.view never diff.session.mountPoint (Diff.view diff)
 
     Help help ->
-      Skeleton.view never (Help.view help)
+      Skeleton.view never help.session.mountPoint (Help.view help)
 
 
 
 -- INIT
 
 
-init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
-init _ url key =
+init : Decode.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init flagsValue url key =
+  let
+    flags = Flags.init flagsValue
+  in
   stepUrl url
     { key = key
-    , page = NotFound Session.empty
+    , page = NotFound (Session.empty (MountPoint.fromString flags.mountedAt))
     }
 
 
@@ -210,7 +217,7 @@ stepUrl url model =
       exit model
 
     parser =
-      oneOf
+      (MountPoint.router session.mountPoint) </> oneOf
         [ route top
             ( stepSearch model (Search.init session)
             )

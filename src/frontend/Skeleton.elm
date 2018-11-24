@@ -18,6 +18,7 @@ import Html.Attributes exposing (..)
 import Html.Lazy exposing (..)
 import Href
 import Json.Decode as D
+import MountPoint exposing (MountPoint)
 import Utils.Logo as Logo
 
 
@@ -58,19 +59,19 @@ authorSegment author =
   Text author
 
 
-projectSegment : String -> String -> Segment
-projectSegment author project =
-  Link (Href.toProject author project) project
+projectSegment : MountPoint -> String -> String -> Segment
+projectSegment mount author project =
+  Link (Href.toProject mount author project) project
 
 
-versionSegment : String -> String -> Maybe V.Version -> Segment
-versionSegment author project version =
-  Link (Href.toVersion author project version) (vsnToString version)
+versionSegment : MountPoint -> String -> String -> Maybe V.Version -> Segment
+versionSegment mount author project version =
+  Link (Href.toVersion mount author project version) (vsnToString version)
 
 
-moduleSegment : String -> String -> Maybe V.Version -> String -> Segment
-moduleSegment author project version moduleName =
-  Link (Href.toModule author project version moduleName Nothing) moduleName
+moduleSegment : MountPoint -> String -> String -> Maybe V.Version -> String -> Segment
+moduleSegment mount author project version moduleName =
+  Link (Href.toModule mount author project version moduleName Nothing) moduleName
 
 
 vsnToString : Maybe V.Version -> String
@@ -87,12 +88,12 @@ vsnToString maybeVersion =
 -- VIEW
 
 
-view : (a -> msg) -> Details a -> Browser.Document msg
-view toMsg details =
+view : (a -> msg) -> MountPoint -> Details a -> Browser.Document msg
+view toMsg mount details =
   { title =
       details.title
   , body =
-      [ viewHeader details.header
+      [ viewHeader mount details.header
       , lazy viewWarning details.warning
       , Html.map toMsg <|
           div (class "center" :: details.attrs) details.kids
@@ -105,14 +106,14 @@ view toMsg details =
 -- VIEW HEADER
 
 
-viewHeader : List Segment -> Html msg
-viewHeader segments =
+viewHeader : MountPoint -> List Segment -> Html msg
+viewHeader mount segments =
   div
     [ style "background-color" "#eeeeee"
     ]
     [ div [class "center"]
         [ h1 [ class "header" ] <|
-            viewLogo :: List.intersperse slash (List.map viewSegment segments)
+            (viewLogo mount) :: List.intersperse slash (List.map viewSegment segments)
         ]
     ]
 
@@ -169,9 +170,9 @@ viewFooter =
 -- VIEW LOGO
 
 
-viewLogo : Html msg
-viewLogo =
-  a [ href "/"
+viewLogo : MountPoint -> Html msg
+viewLogo mount =
+  a [ href (MountPoint.toString mount)
     , style "text-decoration" "none"
     ]
     [

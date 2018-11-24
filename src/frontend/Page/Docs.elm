@@ -18,6 +18,7 @@ import Html.Events exposing (..)
 import Html.Lazy exposing (..)
 import Http
 import Href
+import MountPoint exposing (MountPoint)
 import Page.Docs.Block as Block
 import Page.Problem as Problem
 import Release
@@ -78,7 +79,7 @@ init session author project version focus =
 
     Nothing ->
       ( Model session author project version focus "" Loading Loading Loading
-      , Http.send GotReleases (Session.fetchReleases author project)
+      , Http.send GotReleases (Session.fetchReleases session.mountPoint author project)
       )
 
 
@@ -97,8 +98,8 @@ getInfo latest model =
     Nothing ->
       ( model
       , Cmd.batch
-          [ Http.send (GotReadme version) (Session.fetchReadme author project version)
-          , Http.send (GotDocs version) (Session.fetchDocs author project version)
+          [ Http.send (GotReadme version) (Session.fetchReadme model.session.mountPoint author project version)
+          , Http.send (GotDocs version) (Session.fetchDocs model.session.mountPoint author project version)
           ]
       )
 
@@ -262,8 +263,8 @@ getVersion model =
 toHeader : Model -> List Skeleton.Segment
 toHeader model =
   [ Skeleton.authorSegment model.author
-  , Skeleton.projectSegment model.author model.project
-  , Skeleton.versionSegment model.author model.project (getVersion model)
+  , Skeleton.projectSegment model.session.mountPoint model.author model.project
+  , Skeleton.versionSegment model.session.mountPoint model.author model.project (getVersion model)
   ]
   ++
     case model.focus of
@@ -271,7 +272,7 @@ toHeader model =
         []
 
       Module name _ ->
-        [ Skeleton.moduleSegment model.author model.project model.version name
+        [ Skeleton.moduleSegment model.session.mountPoint model.author model.project model.version name
         ]
 
 
@@ -304,10 +305,10 @@ toNewerUrl : Model -> String
 toNewerUrl model =
   case model.focus of
     Readme ->
-      Href.toVersion model.author model.project Nothing
+      Href.toVersion model.session.mountPoint model.author model.project Nothing
 
     Module name tag ->
-      Href.toModule model.author model.project Nothing name tag
+      Href.toModule model.session.mountPoint model.author model.project Nothing name tag
 
 
 
@@ -321,7 +322,7 @@ viewContent model =
       lazy viewReadme model.readme
 
     Module name tag ->
-      lazy5 viewModule model.author model.project model.version name model.docs
+      lazy5 (viewModule model.session.mountPoint) model.author model.project model.version name model.docs
 
 
 
@@ -347,8 +348,8 @@ viewReadme status =
 -- VIEW MODULE
 
 
-viewModule : String -> String -> Maybe V.Version -> String -> Status (List Docs.Module) -> Html msg
-viewModule author project version name status =
+viewModule : MountPoint -> String -> String -> Maybe V.Version -> String -> Status (List Docs.Module) -> Html msg
+viewModule mount author project version name status =
   case status of
     Success allDocs ->
       case findModule name allDocs of
@@ -356,14 +357,14 @@ viewModule author project version name status =
           let
             header = h1 [class "block-list-title"] [ text name ]
             info = Block.makeInfo author project version name allDocs
-            blocks = List.map (Block.view info) (Docs.toBlocks docs)
+            blocks = List.map (Block.view mount info) (Docs.toBlocks docs)
           in
           div [ class "block-list" ] (header :: blocks)
 
         Nothing ->
           div
             (class "block-list" :: Problem.styles)
-            (Problem.missingModule author project version name)
+            (Problem.missingModule mount author project version name)
 
     Loading ->
       div [ class "block-list" ]
@@ -398,7 +399,7 @@ viewSidebar model =
   div
     [ class "pkg-nav"
     ]
-    [ lazy4 viewReadmeLink model.author model.project model.version model.focus
+    [ lazy4 (viewReadmeLink model.session.mountPoint) model.author model.project model.version model.focus
     , br [] []
     , lazy4 viewBrowseSourceLink model.author model.project model.version model.latest
     , h2 [] [ text "Module Docs" ]
@@ -494,9 +495,9 @@ isTagMatch query toResult tipeName (tagName, _) =
 -- VIEW "README" LINK
 
 
-viewReadmeLink : String -> String -> Maybe V.Version -> Focus -> Html msg
-viewReadmeLink author project version focus =
-  navLink "README" (Href.toVersion author project version) <|
+viewReadmeLink : MountPoint -> String -> String -> Maybe V.Version -> Focus -> Html msg
+viewReadmeLink mount author project version focus =
+  navLink "README" (Href.toVersion mount author project version) <|
     case focus of
       Readme -> True
       Module _ _ -> False
@@ -544,7 +545,7 @@ viewModuleLink : Model -> String -> Html msg
 viewModuleLink model name =
   let
     url =
-      Href.toModule model.author model.project model.version name Nothing
+      Href.toModule model.session.mountPoint model.author model.project model.version name Nothing
   in
   navLink name url <|
     case model.focus of
@@ -556,10 +557,10 @@ viewModuleLink model name =
 
 
 viewValueItem : Model -> String -> String -> String -> Html msg
-viewValueItem { author, project, version } moduleName ownerName valueName =
+viewValueItem { session, author, project, version } moduleName ownerName valueName =
   let
     url =
-      Href.toModule author project version moduleName (Just ownerName)
+      Href.toModule session.mountPoint author project version moduleName (Just ownerName)
   in
   li [ class "pkg-nav-value" ] [ navLink valueName url False ]
 
