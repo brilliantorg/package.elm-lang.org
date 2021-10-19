@@ -16,6 +16,7 @@ import Html.Attributes exposing (..)
 import Html.Lazy exposing (..)
 import Href
 import Json.Decode as D
+import MountPoint exposing (MountPoint)
 import Utils.Logo as Logo
 
 
@@ -53,14 +54,14 @@ authorSegment author =
   Text author
 
 
-projectSegment : String -> String -> Segment
-projectSegment author project =
-  Link (Href.toProject author project) project
+projectSegment : MountPoint -> String -> String -> Segment
+projectSegment mount author project =
+  Link (Href.toProject mount author project) project
 
 
-versionSegment : String -> String -> Maybe V.Version -> Segment
-versionSegment author project version =
-  Link (Href.toVersion author project version) (vsnToString version)
+versionSegment : MountPoint -> String -> String -> Maybe V.Version -> Segment
+versionSegment mount author project version =
+  Link (Href.toVersion mount author project version) (vsnToString version)
 
 
 vsnToString : Maybe V.Version -> String
@@ -77,13 +78,13 @@ vsnToString maybeVersion =
 -- VIEW
 
 
-view : (a -> msg) -> Details a -> Browser.Document msg
-view toMsg details =
+view : (a -> msg) -> MountPoint -> Details a -> Browser.Document msg
+view toMsg mount details =
   { title =
       details.title
   , body =
-      [ viewHeader details.header
-      , lazy viewWarning details.warning
+      [ viewHeader mount details.header
+      , lazy (viewWarning mount) details.warning
       , Html.map toMsg <|
           div (class "center" :: style "flex" "1" :: details.attrs) details.kids
       , viewFooter
@@ -95,11 +96,11 @@ view toMsg details =
 -- VIEW HEADER
 
 
-viewHeader : List Segment -> Html msg
-viewHeader segments =
+viewHeader : MountPoint -> List Segment -> Html msg
+viewHeader mount segments =
   div [class "header"]
     [ div [class "nav"]
-        [ viewLogo
+        [ viewLogo mount
         , case segments of
             [] -> text ""
             _  -> h1 [] (List.intersperse slash (List.map viewSegment segments))
@@ -127,8 +128,8 @@ viewSegment segment =
 -- VIEW WARNING
 
 
-viewWarning : Warning -> Html msg
-viewWarning warning =
+viewWarning : MountPoint -> Warning -> Html msg
+viewWarning mount warning =
   div [ class "header-underbar" ] <|
     case warning of
       NoProblems ->
@@ -143,7 +144,7 @@ viewWarning warning =
       WarnMoved author project ->
         [ p [ class "version-warning" ]
             [ text "NOTE — this package moved to "
-            , a [ href (Href.toVersion author project Nothing) ]
+            , a [ href (Href.toVersion mount author project Nothing) ]
                 [ text (author ++ "/" ++ project)
                 ]
             ]
@@ -173,9 +174,9 @@ viewFooter =
 -- VIEW LOGO
 
 
-viewLogo : Html msg
-viewLogo =
-  a [ href "/"
+viewLogo : MountPoint -> Html msg
+viewLogo mount =
+  a [ href (MountPoint.toString mount)
     , style "text-decoration" "none"
     , style "margin-right" "32px"
     , style "display" "flex"

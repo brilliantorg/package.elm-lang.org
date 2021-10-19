@@ -14,6 +14,7 @@ import Html.Events exposing (..)
 import Html.Lazy exposing (..)
 import Http
 import Href
+import MountPoint exposing (MountPoint)
 import Page.Problem as Problem
 import Release
 import Session
@@ -51,7 +52,7 @@ init session author project =
 
     Nothing ->
       ( Model session author project Loading
-      , Http.send GotReleases (Session.fetchReleases author project)
+      , Http.send GotReleases (Session.fetchReleases session.mountPoint author project)
       )
 
 
@@ -90,7 +91,7 @@ view model =
   { title = model.author ++ "/" ++ model.project
   , header =
       [ Skeleton.authorSegment model.author
-      , Skeleton.projectSegment model.author model.project
+      , Skeleton.projectSegment model.session.mountPoint model.author model.project
       ]
   , warning = Skeleton.NoProblems
   , attrs = [ class "pkg-overview" ]
@@ -107,25 +108,25 @@ view model =
         Success (OneOrMore r rs) ->
           [ h1 [] [ text "Published Versions" ]
           , p [] <|
-              viewReleases model.author model.project <|
+              viewReleases model.session.mountPoint model.author model.project <|
                 List.map .version (List.sortBy .time (r::rs))
           ]
   }
 
 
 
-viewReleases : String -> String -> List V.Version -> List (Html msg)
-viewReleases author project versions =
+viewReleases : MountPoint -> String -> String -> List V.Version -> List (Html msg)
+viewReleases mount author project versions =
   case versions of
     v1 :: ((v2 :: _) as vs) ->
       let
         attrs =
           if isSameMajor v1 v2 then [] else [ bold ]
       in
-      viewReadmeLink author project v1 attrs :: text ", " :: viewReleases author project vs
+      viewReadmeLink mount author project v1 attrs :: text ", " :: viewReleases mount author project vs
 
     r0 :: [] ->
-      [ viewReadmeLink author project r0 [ bold ] ]
+      [ viewReadmeLink mount author project r0 [ bold ] ]
 
     [] ->
       []
@@ -136,11 +137,11 @@ bold =
   style "font-weight" "bold"
 
 
-viewReadmeLink : String -> String -> V.Version -> List (Attribute msg) -> Html msg
-viewReadmeLink author project version attrs =
+viewReadmeLink : MountPoint -> String -> String -> V.Version -> List (Attribute msg) -> Html msg
+viewReadmeLink mount author project version attrs =
   let
     url =
-      Href.toVersion author project (Just version)
+      Href.toVersion mount author project (Just version)
   in
   a (href url :: attrs) [ text (V.toString version) ]
 

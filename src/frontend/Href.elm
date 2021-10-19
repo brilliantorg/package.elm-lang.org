@@ -1,5 +1,6 @@
 module Href exposing
-  ( toProject
+  ( join
+  , toProject
   , toVersion
   , toModule
   , toAbout
@@ -7,6 +8,7 @@ module Href exposing
 
 
 import Elm.Version as V
+import MountPoint exposing(MountPoint(..))
 import Url.Builder as Url
 
 
@@ -14,24 +16,35 @@ import Url.Builder as Url
 -- HREFS
 
 
-toProject : String -> String -> String
-toProject author project =
+join : MountPoint -> String -> String
+join mountPoint path =
+    case mountPoint of
+        Root -> path
+        Subpath subpaths -> "/" ++ (String.join "/" subpaths) ++ path
+
+
+toProject : MountPoint -> String -> String -> String
+toProject mount author project =
   Url.absolute [ "packages", author, project, "" ] []
+      |> join mount
 
 
-toVersion : String -> String -> Maybe V.Version -> String
-toVersion author project version =
+toVersion : MountPoint -> String -> String -> Maybe V.Version -> String
+toVersion mount author project version =
   Url.absolute [ "packages", author, project, vsnToString version, ""] []
+      |> join mount
 
 
-toModule : String -> String -> Maybe V.Version -> String -> Maybe String -> String
-toModule author project version moduleName maybeValue =
+toModule : MountPoint -> String -> String -> Maybe V.Version -> String -> Maybe String -> String
+toModule mount author project version moduleName maybeValue =
   Url.custom Url.Absolute [ "packages", author, project, vsnToString version, String.replace "." "-" moduleName ] [] maybeValue
+      |> join mount
 
 
-toAbout : String -> String -> Maybe V.Version -> String
-toAbout author project version =
+toAbout : MountPoint -> String -> String -> Maybe V.Version -> String
+toAbout mount author project version =
   Url.absolute [ "packages", author, project, vsnToString version, "about" ] []
+      |> join mount
 
 
 
